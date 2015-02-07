@@ -1,0 +1,18 @@
+program TimbrarCancelar;
+
+uses
+  Forms,
+  ejemploTimbrado in 'ejemploTimbrado.pas' {Form1},
+  WS in 'WS.pas',
+  CFD in 'CFD.pas',
+  MSXML2_TLB in '..\..\..\..\..\..\Program Files\Borland\Delphi7\Imports\MSXML2_TLB.pas',
+  EncdDecd in 'EncdDecd.pas';
+
+{$R *.res}
+
+begin
+  Application.Initialize;
+  //Application.MainFormOnTaskbar := True;
+  Application.CreateForm(TForm1, Form1);
+  Application.Run;
+end.

@@ -3,7 +3,7 @@ unit WS;
 interface
 
 uses
-  SysUtils, Classes, Windows, Forms, IdCoder, IdCoder3to4, IdBaseComponent, IdCoderMIME, jpeg, ComObj, msxml, msxmldom,  xmldom,  XMLIntf, XMLDoc;
+  SysUtils, Classes, Windows, Forms, ComObj, msxml, msxmldom,  xmldom,  XMLIntf, XMLDoc, Utilidades;
 
 type
   WSConecFM = class(TObject)
@@ -15,46 +15,56 @@ protected
   { Protected declarations }
 
 public
-  { Public declarations }       // TVariantRec = record
-  function timbrado(layout: string; parametros : TStringList): TStringList;
+  { Public declarations }
+  function timbrado(layout: WideString; parametros : TStringList): TStringList;
   function cancelado(uuid: string; parametros : TStringList): TStringList;
-  function base64encode(strLinea: ansiString): ansiString;
-  function base64decode(strLinea: ansiString): ansiString;
 
 published
 { Published declarations }
 
 end;
 
+var
+  Util : Utilities;
+  
 implementation
 
-function WSConecFM.timbrado( layout: string; parametros : TStringList ): TStringList;
+function WSConecFM.timbrado( layout: WideString; parametros : TStringList ): TStringList;
 
 var F: TFileStream;
-    linea, strLinea, layoutB64, soapResponse, cfdi: String;
+    linea, strLinea, layoutB64, soapResponse, cfdi, path, file_name, file_path: String;
     XMLHTTPCFDI, xmldoc: OleVariant;
     emisorRFC, userPass, userId, urlTimbrado, generarPDF, generarCBB, generarTXT: string;
-    CFDIBase64,PDFBase64, CBBBase64,TXTBase64, UUID: WideString;
+    CFDIBase64,PDFBase64, CBBBase64,TXTBase64, UUID, content_file: WideString;
     ch: Char;
     resultados : TStringList;
     xmlNode, node: IxmlDomNode;
     xml: IXMLDomDocument;
+    deleted: boolean;
+    lay: AnsiChar;
 
 begin
-  if FileExists(layout) then
+  path := ExtractFilePath( Application.ExeName );
+  deleted := False;
+  resultados := TStringList.Create;
+
+  if not FileExists(layout) then
   begin
-    F := TFileStream.Create(layout, fmOpenRead );
-    while F.Position <> F.Size do
-    begin
-      F.Read(ch, 1 );
-      strLinea := strLinea + ch;
-    end;
-    F.Free;
-    layout := strLinea
+    file_name := Util.RandomNameFile('.txt');
+    file_path := path + file_name;
+    Util.WriteFileTmp(file_path, layout);
+    layout := file_path;
+    deleted := True;
   end;
-  // Codificar a base 64 el layout
-  layoutB64 := base64encode(layout);
-   //layout := base64decode(layoutB64);
+
+  layoutB64 := Util.Base64EncodeFile(layout);
+
+  if (deleted) then
+  begin
+    Util.delete_file(layout);
+  end;
+
+
   emisorRFC := parametros.Values['emisorRFC'];
   urlTimbrado := parametros.Values['urlTimbrado'];
   userPass := parametros.Values['userPass'];
@@ -62,8 +72,6 @@ begin
   generarPDF := parametros.Values['generarPDF'];
   generarTXT := parametros.Values['generarTXT'];
   generarCBB := parametros.Values['generarCBB'];
-
-  resultados := TStringList.Create;
 
   // Objeto encargado de realizar las peticiones http al web service de Facturación Moderna
     XMLHTTPCFDI := CreateOleObject('Microsoft.XMLHTTP');
@@ -110,7 +118,7 @@ begin
         resultados.Add('xmlb64='+CFDIBase64);
 
         // Obtenemos el UUID
-        cfdi := base64decode(CFDIBase64);
+        cfdi := Util.base64decode(CFDIBase64);
         xml := CoDOMDocument.create;
         xml.loadXML(cfdi);
         xmlNode := xml.documentElement;
@@ -214,27 +222,4 @@ begin
   end;
 end; // Fin de Cancelado
 
-function WSConecFM.base64encode(strLinea: AnsiString): ansiString;
-  var Encoder : TIdEncoderMime;
-  begin
-    Encoder := TIdEncoderMime.Create(nil);
-    try
-      Result := Encoder.EncodeString(strLinea);
-    finally
-      FreeAndNil(Encoder);
-  end;
-end;
-
-function WSConecFM.base64decode(strLinea: AnsiString): ansiString;
-  var Decoder : TIdDecoderMime;
-  begin
-    Decoder := TIdDecoderMime.Create(nil);
-    try
-      Result := Decoder.DecodeString(strLinea);
-    finally
-      FreeAndNil(Decoder)
-  end
-end;
-
-// Fin de Implementation
 end.

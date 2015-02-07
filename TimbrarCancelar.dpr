@@ -3,7 +3,11 @@ program TimbrarCancelar;
 uses
   Forms,
   ejemploTimbrado in 'ejemploTimbrado.pas' {Form1},
-  WS in 'WS.pas';
+  WS in 'WS.pas',
+  CFD in 'CFD.pas',
+  MSXML2_TLB in '..\..\..\..\..\..\Program Files\Borland\Delphi7\Imports\MSXML2_TLB.pas',
+  EncdDecd in 'EncdDecd.pas',
+  Utilidades in 'Utilidades.pas';
 
 {$R *.res}
 

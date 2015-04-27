@@ -3,30 +3,22 @@ unit WS;
 interface
 
 uses
-  SysUtils, Classes, Windows, Forms, {IdCoder, IdCoder3to4, IdBaseComponent, IdCoderMIME, jpeg,} ComObj, msxml, msxmldom,  xmldom,  XMLIntf, XMLDoc{, EncdDecd}, Utilidades;
+  SysUtils, Classes, Windows, Forms, ComObj, msxml, msxmldom,  xmldom,  XMLIntf, XMLDoc, Utilidades;
 
 type
   WSConecFM = class(TObject)
 
 private
   { Private declarations }
-  {
-  function WriteFileTmp(file_path: String; myText:WideString): boolean;
-  function EncodeFile(file_path: string): WideString;
-  function RandomNameFile(extension: String): String;
-  function ReadFileTmp(file_path: String; delete: integer): WideString;
-  }
+
 protected
   { Protected declarations }
 
 public
-  { Public declarations }       // TVariantRec = record
+  { Public declarations }
   function timbrado(layout: WideString; parametros : TStringList): TStringList;
   function cancelado(uuid: string; parametros : TStringList): TStringList;
-  {
-  function base64encode(strLinea: WideString): ansiString;
-  function base64decode(strLinea: ansiString): ansiString;
-  }
+
 published
 { Published declarations }
 
@@ -34,7 +26,7 @@ end;
 
 var
   Util : Utilities;
-  
+
 implementation
 
 function WSConecFM.timbrado( layout: WideString; parametros : TStringList ): TStringList;
@@ -50,6 +42,9 @@ var F: TFileStream;
     xml: IXMLDomDocument;
     deleted: boolean;
     lay: AnsiChar;
+    status: String;
+    statusText:String;
+    responseXML: WideString;
 
 begin
   path := ExtractFilePath( Application.ExeName );
@@ -63,11 +58,8 @@ begin
     Util.WriteFileTmp(file_path, layout);
     layout := file_path;
     deleted := True;
-    //content_file:=ReadFileTmp(layout, 1);
-    //layout := content_file;
   end;
 
-  //layoutB64 := base64encode(layout);
   layoutB64 := Util.Base64EncodeFile(layout);
 
   if (deleted) then
@@ -110,58 +102,68 @@ begin
     while (XMLHTTPCFDI.readyState <>  4) do
       Application.ProcessMessages;
 
-    // Respuesta del web service
+    // Obtener variables de respuesta
+    status := XMLHTTPCFDI.status;
+    statusText:= XMLHTTPCFDI.statusText;
     soapResponse := XMLHTTPCFDI.responseText;
-    // Creamos un objeto capaz de acceder a los nodos de la respuesta en formato XML
-    xmldoc := CreateOleObject('Msxml2.DOMDocument.3.0');
-    if(xmldoc.loadXML(soapResponse)) then
+    if (status == '200') Then
     begin
-      If (xmldoc.getElementsByTagName('env:Fault').length >= 1) Then
+      // Creamos un objeto capaz de acceder a los nodos de la respuesta en formato XML
+      xmldoc := CreateOleObject('Msxml2.DOMDocument.3.0');
+      if(xmldoc.loadXML(soapResponse)) then
       begin
-        resultados.Add('code='+xmldoc.getElementsByTagName('env:Value').Item(0).Text);
-        resultados.Add('message='+xmldoc.getElementsByTagName('env:Text').Item(0).Text);
-        Result := resultados;
+        If (xmldoc.getElementsByTagName('env:Fault').length >= 1) Then
+        begin
+          resultados.Add('code='+xmldoc.getElementsByTagName('env:Value').Item(0).Text);
+          resultados.Add('message='+xmldoc.getElementsByTagName('env:Text').Item(0).Text);
+          Result := resultados;
+        end
+        else
+        begin
+          // Obtenemos el nodo xml contenedor del CFDI
+          CFDIBase64 := xmldoc.getElementsByTagName('xml').Item(0).Text;
+          resultados.Add('xmlb64='+CFDIBase64);
+          // Obtenemos el UUID
+          cfdi := Util.base64decode(CFDIBase64);
+          xml := CoDOMDocument.create;
+          xml.loadXML(cfdi);
+          xmlNode := xml.documentElement;
+          node:=xml.documentElement.getElementsByTagName('tfd:TimbreFiscalDigital').item[0];
+          UUID := node.attributes.getNamedItem('UUID').Text;
+          resultados.Add('uuid='+UUID);
+
+          // Obtenemos la representación impresa del CFDI en formato PDF
+          if generarPDF = 'true' then
+          begin
+            PDFBase64 := xmldoc.getElementsByTagName('pdf').Item(0).Text;
+            resultados.Add('pdfb64='+PDFBase64);
+          end;
+          // Obtenemos la representación impresa del CFDI en formato PDF
+          if generarTXT = 'true' then
+          begin
+            TXTBase64 := xmldoc.getElementsByTagName('txt').Item(0).Text;
+            resultados.Add('txtb64='+TXTBase64);
+          end;
+          // Obtenemos la representación impresa del CFDI en formato PDF
+          if generarCBB = 'true' then
+          begin
+            CBBBase64 := xmldoc.getElementsByTagName('png').Item(0).Text;
+            resultados.Add('cbbb64='+CBBBase64);
+          end;
+          Result := resultados;
+        end;
       end
       else
       begin
-        // Obtenemos el nodo xml contenedor del CFDI
-        CFDIBase64 := xmldoc.getElementsByTagName('xml').Item(0).Text;
-        resultados.Add('xmlb64='+CFDIBase64);
-
-        // Obtenemos el UUID
-        cfdi := Util.base64decode(CFDIBase64);
-        xml := CoDOMDocument.create;
-        xml.loadXML(cfdi);
-        xmlNode := xml.documentElement;
-        node:=xml.documentElement.getElementsByTagName('tfd:TimbreFiscalDigital').item[0];
-        UUID := node.attributes.getNamedItem('UUID').Text;
-        resultados.Add('uuid='+UUID);
-
-        // Obtenemos la representación impresa del CFDI en formato PDF
-        if generarPDF = 'true' then
-        begin
-          PDFBase64 := xmldoc.getElementsByTagName('pdf').Item(0).Text;
-          resultados.Add('pdfb64='+PDFBase64);
-        end;
-        // Obtenemos la representación impresa del CFDI en formato PDF
-        if generarTXT = 'true' then
-        begin
-          TXTBase64 := xmldoc.getElementsByTagName('txt').Item(0).Text;
-          resultados.Add('txtb64='+TXTBase64);
-        end;
-        // Obtenemos la representación impresa del CFDI en formato PDF
-        if generarCBB = 'true' then
-        begin
-          CBBBase64 := xmldoc.getElementsByTagName('png').Item(0).Text;
-          resultados.Add('cbbb64='+CBBBase64);
-        end;
+        resultados.Add('code=E-001');
+        resultados.Add('message=No se logro crear el XML de soapResponse');
         Result := resultados;
       end;
     end
     else
     begin
-      resultados.Add('code=E-001');
-      resultados.Add('message=No se logro crear el XML de soapResponse');
+      resultados.Add('code='+status);
+      resultados.Add('message='+soapResponse);
       Result := resultados;
     end;
 end; // Fin de timbrado
@@ -232,140 +234,5 @@ begin
     Result := resultados;
   end;
 end; // Fin de Cancelado
-
-{
-function WSConecFM.base64encode(strLinea: WideString): ansiString;
-  var Encoder : TIdEncoderMime;
-  begin
-    Encoder := TIdEncoderMime.Create(nil);
-    try
-      Result := Encoder.EncodeString(strLinea);
-    finally
-      FreeAndNil(Encoder);
-  end;
-end;
-
-function WSConecFM.base64decode(strLinea: AnsiString): ansiString;
-  var Decoder : TIdDecoderMime;
-  begin
-    Decoder := TIdDecoderMime.Create(nil);
-    try
-      Result := Decoder.DecodeString(strLinea);
-    finally
-      FreeAndNil(Decoder)
-  end
-end;
-
-function WSConecFM.WriteFileTmp(file_path: String; myText:WideString): boolean;
-const
-  UTF8BOM: array[0..2] of Byte = ($EF, $BB, $BF);
-var
-  UTF8Str: UTF8String;
-  FS: TFileStream;
-begin
-  UTF8Str := UTF8Encode(myText);
-
-  FS := TFileStream.Create(file_path, fmCreate);
-  try
-    FS.WriteBuffer(UTF8BOM[0], SizeOf(UTF8BOM));
-    FS.WriteBuffer(PAnsiChar(UTF8Str)^, Length(UTF8Str));
-  finally
-    FS.Free;
-  end;
-end;
-
-function WSConecFM.RandomNameFile(extension: String): String;
-var
-  wAnyo, wMes, wDia: Word;
-  wHora, wMinutos, wSegundos, wMilisegundos: Word;
-  filename : String;
-begin
-  LongTimeFormat := 'hh:mm:ss.zzz';
-  filename := 'tmp' + TimeToStr(Now());
-  filename := StringReplace(filename, ':', '', [rfReplaceAll, rfIgnoreCase]);
-  filename := StringReplace(filename, '.', '', [rfReplaceAll, rfIgnoreCase]);
-  Result := filename + extension;
-end;
-
-function WSConecFM.EncodeFile(file_path: string): WideString;
-var
-  SourceStr: TFileStream;
-  Encoder: TIdEncoderMIME;
-  str : WideString;
-begin
-    str := '';
-    SourceStr := TFileStream.Create(file_path, fmOpenRead);
-    try
-      Encoder := TIdEncoderMIME.Create(nil);
-      try
-        str := Encoder.Encode(SourceStr);
-      finally
-        Encoder.Free;
-      end;
-    finally
-      SourceStr.Free;
-    end;
-    Result := str;
-end;
-
-function WSConecFM.ReadFileTmp(file_path: String; delete: integer): WideString;
-var
-  f:TFileStream;
-  src:AnsiString;
-  wx:word;
-  i,j:integer;
-begin
-  if FileExists(file_path) then
-   begin
-    f:=TFileStream.Create(file_path,fmOpenRead or fmShareDenyNone);
-    try
-      f.Read(wx,2);
-      if wx=$FEFF then
-       begin
-        //UTF16
-        i:=(f.Size div 2)-1;
-        SetLength(Result,i);
-        f.Read(Result[1],i*2);
-        //detect NULL's
-        for j:=1 to i do if Result[j]=#0 then Result[j]:=' ';//?
-       end
-      else
-       begin
-        i:=0;
-        if wx=$BBEF then f.Read(i,1);
-        if (wx=$BBEF) and (i=$BF) then
-         begin
-          //UTF-8
-          i:=f.Size-3;
-          SetLength(src,i);
-          f.Read(src[1],i);
-          //detect NULL's
-          for j:=1 to i do if src[j]=#0 then src[j]:=' ';//?
-          Result:=Trim(UTF8Decode(src));
-         end
-        else
-         begin
-          //assume current encoding
-          f.Position:=0;
-          i:=f.Size;
-          SetLength(src,i);
-          f.Read(src[1],i);
-          //detect NULL's
-          for j:=1 to i do if src[j]=#0 then src[j]:=' ';//?
-          Result:=Trim(src);
-         end;
-       end;
-    finally
-      f.Free;
-    end;
-    if (delete = 1) then
-    begin
-      DeleteFile(PChar(file_path));
-    end;
-   end
-  else
-    Result:='';
-end;
-}
 
 end.

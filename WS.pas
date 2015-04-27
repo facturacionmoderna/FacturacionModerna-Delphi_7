@@ -26,7 +26,7 @@ end;
 
 var
   Util : Utilities;
-  
+
 implementation
 
 function WSConecFM.timbrado( layout: WideString; parametros : TStringList ): TStringList;
@@ -42,6 +42,9 @@ var F: TFileStream;
     xml: IXMLDomDocument;
     deleted: boolean;
     lay: AnsiChar;
+    status: String;
+    statusText:String;
+    responseXML: WideString;
 
 begin
   path := ExtractFilePath( Application.ExeName );
@@ -99,58 +102,68 @@ begin
     while (XMLHTTPCFDI.readyState <>  4) do
       Application.ProcessMessages;
 
-    // Respuesta del web service
+    // Obtener variables de respuesta
+    status := XMLHTTPCFDI.status;
+    statusText:= XMLHTTPCFDI.statusText;
     soapResponse := XMLHTTPCFDI.responseText;
-    // Creamos un objeto capaz de acceder a los nodos de la respuesta en formato XML
-    xmldoc := CreateOleObject('Msxml2.DOMDocument.3.0');
-    if(xmldoc.loadXML(soapResponse)) then
+    if (status = '200') Then
     begin
-      If (xmldoc.getElementsByTagName('env:Fault').length >= 1) Then
+      // Creamos un objeto capaz de acceder a los nodos de la respuesta en formato XML
+      xmldoc := CreateOleObject('Msxml2.DOMDocument.3.0');
+      if(xmldoc.loadXML(soapResponse)) then
       begin
-        resultados.Add('code='+xmldoc.getElementsByTagName('env:Value').Item(0).Text);
-        resultados.Add('message='+xmldoc.getElementsByTagName('env:Text').Item(0).Text);
-        Result := resultados;
+        If (xmldoc.getElementsByTagName('env:Fault').length >= 1) Then
+        begin
+          resultados.Add('code='+xmldoc.getElementsByTagName('env:Value').Item(0).Text);
+          resultados.Add('message='+xmldoc.getElementsByTagName('env:Text').Item(0).Text);
+          Result := resultados;
+        end
+        else
+        begin
+          // Obtenemos el nodo xml contenedor del CFDI
+          CFDIBase64 := xmldoc.getElementsByTagName('xml').Item(0).Text;
+          resultados.Add('xmlb64='+CFDIBase64);
+          // Obtenemos el UUID
+          cfdi := Util.base64decode(CFDIBase64);
+          xml := CoDOMDocument.create;
+          xml.loadXML(cfdi);
+          xmlNode := xml.documentElement;
+          node:=xml.documentElement.getElementsByTagName('tfd:TimbreFiscalDigital').item[0];
+          UUID := node.attributes.getNamedItem('UUID').Text;
+          resultados.Add('uuid='+UUID);
+
+          // Obtenemos la representación impresa del CFDI en formato PDF
+          if generarPDF = 'true' then
+          begin
+            PDFBase64 := xmldoc.getElementsByTagName('pdf').Item(0).Text;
+            resultados.Add('pdfb64='+PDFBase64);
+          end;
+          // Obtenemos la representación impresa del CFDI en formato PDF
+          if generarTXT = 'true' then
+          begin
+            TXTBase64 := xmldoc.getElementsByTagName('txt').Item(0).Text;
+            resultados.Add('txtb64='+TXTBase64);
+          end;
+          // Obtenemos la representación impresa del CFDI en formato PDF
+          if generarCBB = 'true' then
+          begin
+            CBBBase64 := xmldoc.getElementsByTagName('png').Item(0).Text;
+            resultados.Add('cbbb64='+CBBBase64);
+          end;
+          Result := resultados;
+        end;
       end
       else
       begin
-        // Obtenemos el nodo xml contenedor del CFDI
-        CFDIBase64 := xmldoc.getElementsByTagName('xml').Item(0).Text;
-        resultados.Add('xmlb64='+CFDIBase64);
-
-        // Obtenemos el UUID
-        cfdi := Util.base64decode(CFDIBase64);
-        xml := CoDOMDocument.create;
-        xml.loadXML(cfdi);
-        xmlNode := xml.documentElement;
-        node:=xml.documentElement.getElementsByTagName('tfd:TimbreFiscalDigital').item[0];
-        UUID := node.attributes.getNamedItem('UUID').Text;
-        resultados.Add('uuid='+UUID);
-
-        // Obtenemos la representación impresa del CFDI en formato PDF
-        if generarPDF = 'true' then
-        begin
-          PDFBase64 := xmldoc.getElementsByTagName('pdf').Item(0).Text;
-          resultados.Add('pdfb64='+PDFBase64);
-        end;
-        // Obtenemos la representación impresa del CFDI en formato PDF
-        if generarTXT = 'true' then
-        begin
-          TXTBase64 := xmldoc.getElementsByTagName('txt').Item(0).Text;
-          resultados.Add('txtb64='+TXTBase64);
-        end;
-        // Obtenemos la representación impresa del CFDI en formato PDF
-        if generarCBB = 'true' then
-        begin
-          CBBBase64 := xmldoc.getElementsByTagName('png').Item(0).Text;
-          resultados.Add('cbbb64='+CBBBase64);
-        end;
+        resultados.Add('code=E-001');
+        resultados.Add('message=No se logro crear el XML de soapResponse');
         Result := resultados;
       end;
     end
     else
     begin
-      resultados.Add('code=E-001');
-      resultados.Add('message=No se logro crear el XML de soapResponse');
+      resultados.Add('code='+status);
+      resultados.Add('message='+soapResponse);
       Result := resultados;
     end;
 end; // Fin de timbrado

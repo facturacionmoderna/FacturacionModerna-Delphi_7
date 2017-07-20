@@ -209,9 +209,9 @@ var
     Screen.Cursor:= crHourGlass;
     path := ExtractFilePath( Application.ExeName );
     xmlfile := txtXml.Text;
-    xsltfile := path + 'utilerias\xslt3_2\cadenaoriginal_3_2.xslt';
-    certfile := path + 'utilerias\certificados\20001000000200000278.cer';
-    keyfile := path + 'utilerias\certificados\20001000000200000278.key';
+    xsltfile := path + 'utilerias\xslt3_3\cadenaoriginal_3_3.xslt';
+    certfile := path + 'utilerias\certificados\20001000000300022759.cer';
+    keyfile := path + 'utilerias\certificados\20001000000300022759.key';
     password := '12345678a';
 
     if CheckBox1.Checked then

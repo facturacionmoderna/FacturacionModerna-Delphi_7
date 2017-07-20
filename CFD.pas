@@ -172,8 +172,8 @@ begin
   for i := 0 to objNodelist.length - 1 do
   begin
     objNode := objNodelist.item[i];
-    objNode.selectSingleNode('@certificado').Text := cert;
-    objNode.selectSingleNode('@noCertificado').Text := certNo;
+    objNode.selectSingleNode('@Certificado').Text := cert;
+    objNode.selectSingleNode('@NoCertificado').Text := certNo;
   end;
   //
   XMLDoc.setProperty('SelectionNamespaces', 'xmlns:retenciones="http://www.sat.gob.mx/esquemas/retencionpago/1"');
@@ -307,7 +307,7 @@ begin
   pid := ejecutarComando(command, pemfile);
 
   { Crear el sello del xml }
-  command := 'openssl dgst -sha1 -sign "' + pemfile + '" "' + chain + '" | openssl enc -base64 -A';
+  command := 'openssl dgst -sha256 -sign "' + pemfile + '" "' + chain + '" | openssl enc -base64 -A';
   file_name := Util.RandomNameFile('.txt');
   file_path := path + file_name;
   pid := ejecutarComando(command, file_path);
@@ -384,7 +384,7 @@ begin
   for i := 0 to objNodelist.length - 1 do
   begin
     objNode := objNodelist.item[i];
-    objNode.selectSingleNode('@sello').Text := digitalStamp;
+    objNode.selectSingleNode('@Sello').Text := digitalStamp;
   end;
   //
   XMLDoc.setProperty('SelectionNamespaces', 'xmlns:retenciones="http://www.sat.gob.mx/esquemas/retencionpago/1"');
